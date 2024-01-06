@@ -66,58 +66,129 @@ def divide_video (original_path, output_path):
     print(f"영상 해상도: {iw}x{ih}")
     print(f"타일 해상도: {w}x{h}")
     count = 0
+
+    command = [
+        "ffmpeg",
+        "-i", original_path,
+    ]
+
+    filter_complex_str = ""
+    for i in range(16):  # 모든 타일을 한 번에 처리
+        print(f"출력 경로: {output_path}/{i}.mp4")
+        filter_complex_str += f"[0:v]crop={w}:{h}:{w * (i % 4)}:{h * (i // 4)}[tile{i}];"
+
+    command.append("-filter_complex")
+    command.append(filter_complex_str[:-1])  # 마지막 세미콜론을 제거합니다.
+
+    for i in range(16):  # 모든 타일을 한 번에 처리
+        command.extend([
+            "-map", f"[tile{i}]",
+            "-progress", "-",  # 진행 상황을 표시하기 위한 옵션
+            "-map", "0:a:0",  # 첫 번째 오디오 스트림을 지정'
+            "-c:v", "h264_nvenc",  # 하드웨어 가속 옵션
+            "-preset", "p6",  # 인코딩 속도 옵션
+            "-tune", "lossless",
+            "-cq", "0",
+            "-c:a", "copy",
+            "-y", f"{output_path}/{i}.mp4"
+        ])
+
+    #subprocess.run(command)
+
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    #tqdm 진행 표시줄을 초기화합니다.
+    pbar = tqdm(total=None)
+    for line in process.stdout:
+       # 출력에서 "Duration: 00:00:30.04"와 같은 라인을 찾아서 전체 동영상 길이를 가져옵니다.
+       if "Duration" in line:
+           time_str = re.search("Duration: (.*?),", line).group(1)
+           hours, minutes, seconds = map(float, re.split(':', time_str))
+           total_seconds = hours*3600 + minutes*60 + seconds
+           pbar.total = total_seconds
+           pbar.refresh()
+       # 출력에서 "time=00:00:10.00"과 같은 라인을 찾아서 현재 진행 시간을 가져옵니다.
+       if "time=" in line:
+           match = re.search("time=(.*?) ", line)
+           if match is not None:
+               time_str = match.group(1)
+               hours, minutes, seconds = map(float, re.split(':', time_str))
+               elapsed_seconds = hours * 3600 + minutes * 60 + seconds
+               pbar.n = elapsed_seconds
+               pbar.refresh()
+    pbar.close()
+
+
     # 4개의 작업을 한 번에 처리하기 위한 반복문
-    for batch in range(0, 16, 4):
-        command = [
-            "ffmpeg",
-            "-i", original_path,
-        ]
-
-        filter_complex_str = ""
-        for i in range(4):  # 4개의 타일을 한 번에 처리
-            tile_index = i + 4 * (batch // 4)
-            print(f"출력 경로: {output_path}/{tile_index}.mp4")
-            filter_complex_str += f"[0:v]crop={w}:{h}:{w * (tile_index % 4)}:{h * (tile_index // 4)}[tile{tile_index}];"
-
-        command.append("-filter_complex")
-        command.append(filter_complex_str[:-1])  # 마지막 세미콜론을 제거합니다.
-
-        for i in range(4):  # 4개의 타일을 한 번에 처리
-            tile_index = i + 4 * (batch // 4)
-            command.extend([
-                "-map", f"[tile{tile_index}]",
-                "-progress", "-",  # 진행 상황을 표시하기 위한 옵션
-                "-map", "0:a:0",  # 첫 번째 오디오 스트림을 지정
-                "-c:v", "h264_nvenc",  # 하드웨어 가속 옵션
-                "-preset", "fast",  # 인코딩 속도 옵션
-                "-c:a", "copy",
-                "-y", f"{output_path}/{tile_index}.mp4"
-            ])
+   # for batch in range(0, 16, 4):
+   #     command = [
+   #         "ffmpeg",
+   #         "-i", original_path,
+   #     ]
+#
+   #     filter_complex_str = ""
+#
+   #     for i in range(16):  # 모든 타일을 한 번에 처리
+   #         print(f"출력 경로: {output_path}/{i}.mp4")
+   #         filter_complex_str += f"[0:v]crop={w}:{h}:{w * (i % 4)}:{h * (i // 4)}[tile{i}];"
+#
+   #     command.append("-filter_complex")
+   #     command.append(filter_complex_str[:-1])  # 마지막 세미콜론을 제거합니다.
+#
+   #     for i in range(16):  # 모든 타일을 한 번에 처리
+   #         command.extend([
+   #             "-map", f"[tile{i}]",
+   #             "-progress", "-",  # 진행 상황을 표시하기 위한 옵션
+   #             "-map", "0:a:0",  # 첫 번째 오디오 스트림을 지정
+   #             "-c:v", "h264_nvenc",  # 하드웨어 가속 옵션
+   #             "-preset", "fast",  # 인코딩 속도 옵션
+   #             "-c:a", "copy",
+   #             "-y", f"{output_path}/{i}.mp4"
+   #         ])
+   #
+   #     for i in range(4):  # 4개의 타일을 한 번에 처리
+   #         tile_index = i + 4 * (batch // 4)
+   #         print(f"출력 경로: {output_path}/{tile_index}.mp4")
+   #         filter_complex_str += f"[0:v]crop={w}:{h}:{w * (tile_index % 4)}:{h * (tile_index // 4)}[tile{tile_index}];"
+#
+   #     command.append("-filter_complex")
+   #     command.append(filter_complex_str[:-1])  # 마지막 세미콜론을 제거합니다.
+#
+   #     for i in range(4):  # 4개의 타일을 한 번에 처리
+   #         tile_index = i + 4 * (batch // 4)
+   #         command.extend([
+   #             "-map", f"[tile{tile_index}]",
+   #             "-progress", "-",  # 진행 상황을 표시하기 위한 옵션
+   #             "-map", "0:a:0",  # 첫 번째 오디오 스트림을 지정
+   #             "-c:v", "h264_nvenc",  # 하드웨어 가속 옵션
+   #             "-preset", "fast",  # 인코딩 속도 옵션
+   #             "-c:a", "copy",
+   #             "-y", f"{output_path}/{tile_index}.mp4"
+   #         ])
 
         # 프로세스를 시작하고, stdout을 파이프에 연결합니다.
         #subprocess.run(command)
 
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-        # tqdm 진행 표시줄을 초기화합니다.
-        pbar = tqdm(total=None)
-        for line in process.stdout:
-            # 출력에서 "Duration: 00:00:30.04"와 같은 라인을 찾아서 전체 동영상 길이를 가져옵니다.
-            if "Duration" in line:
-                time_str = re.search("Duration: (.*?),", line).group(1)
-                hours, minutes, seconds = map(float, re.split(':', time_str))
-                total_seconds = hours*3600 + minutes*60 + seconds
-                pbar.total = total_seconds
-                pbar.refresh()
-            # 출력에서 "time=00:00:10.00"과 같은 라인을 찾아서 현재 진행 시간을 가져옵니다.
-            if "time=" in line:
-                match = re.search("time=(.*?) ", line)
-                if match is not None:
-                    time_str = match.group(1)
-                    hours, minutes, seconds = map(float, re.split(':', time_str))
-                    elapsed_seconds = hours * 3600 + minutes * 60 + seconds
-                    pbar.n = elapsed_seconds
-                    pbar.refresh()
-        pbar.close()
+        #process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        ## tqdm 진행 표시줄을 초기화합니다.
+        #pbar = tqdm(total=None)
+        #for line in process.stdout:
+        #    # 출력에서 "Duration: 00:00:30.04"와 같은 라인을 찾아서 전체 동영상 길이를 가져옵니다.
+        #    if "Duration" in line:
+        #        time_str = re.search("Duration: (.*?),", line).group(1)
+        #        hours, minutes, seconds = map(float, re.split(':', time_str))
+        #        total_seconds = hours*3600 + minutes*60 + seconds
+        #        pbar.total = total_seconds
+        #        pbar.refresh()
+        #    # 출력에서 "time=00:00:10.00"과 같은 라인을 찾아서 현재 진행 시간을 가져옵니다.
+        #    if "time=" in line:
+        #        match = re.search("time=(.*?) ", line)
+        #        if match is not None:
+        #            time_str = match.group(1)
+        #            hours, minutes, seconds = map(float, re.split(':', time_str))
+        #            elapsed_seconds = hours * 3600 + minutes * 60 + seconds
+        #            pbar.n = elapsed_seconds
+        #            pbar.refresh()
+        #pbar.close()
 
 
     # 프로세스를 시작하고, stdout을 파이프에 연결합니다.
@@ -176,18 +247,20 @@ def divide_video (original_path, output_path):
 
 
 def mix_tile(tile_paths, output_path):
-    split_tiles = ([0,1,2,3],
-                   [4,5,6,7],
-                   [8,9,10,11],
-                   [12,13,14,15])
-
+    #split_tiles = ([0,1,2,3],
+    #               [4,5,6,7],
+    #               [8,9,10,11],
+    #               [12,13,14,15])
+    #
     #original_recovery
 
-    #split_tiles = ([6,2,14,10],
-    #               [13,9,5,1],
-    #               [4,0,12,8],
-    #               [15,11,7,3])
+    split_tiles = ([9,8,11,10],
+                   [7,6,5,4],
+                   [1,0,3,2],
+                   [15,14,13,12])
     #mix_tiles
+    #recovery
+
 
     print(f"타일 경로: {tile_paths}")
     print(f"출력 경로: {output_path}")
@@ -217,7 +290,8 @@ def mix_tile(tile_paths, output_path):
         "-map", "[v]",
         "-map", "[a]",
         "-c:v", "h264_nvenc",  # 하드웨어 가속 옵션
-        "-preset", "fast",  # 인코딩 속도 옵션
+        "-b:v", "8000k",
+        "-preset", "p7",  # 인코딩 속도 옵션
         "-c:a", "aac",  # 오디오 코덱 설정
         "-y", output_path
     ])
@@ -230,7 +304,7 @@ def mix_tile(tile_paths, output_path):
     pbar = tqdm(total=None)
 
     for line in process.stdout:
-        # 출력에서 "Duration: 00:00:30.04"와 같은 라인을 찾아서 전체 동영상 길이를 가져옵니다.
+        # 'Duration'과 'out_time'을 찾아서 전체 동영상 길이와 현재 진행 시간을 가져옵니다.
         if "Duration" in line:
             time_str = re.search("Duration: (.*?),", line).group(1)
             hours, minutes, seconds = map(float, re.split(':', time_str))
@@ -238,8 +312,7 @@ def mix_tile(tile_paths, output_path):
             pbar.total = total_seconds
             pbar.refresh()
 
-        # 출력에서 "time=00:00:10.00"과 같은 라인을 찾아서 현재 진행 시간을 가져옵니다.
-        if "time=" in line:
+        elif "time=" in line:
             match = re.search("time=(.*?) ", line)
             if match is not None:
                 time_str = match.group(1)
@@ -247,7 +320,6 @@ def mix_tile(tile_paths, output_path):
                 elapsed_seconds = hours * 3600 + minutes * 60 + seconds
                 pbar.n = elapsed_seconds
                 pbar.refresh()
-
     pbar.close()
 
 #https://ffmpeg.org/ffmpeg-filters.html#xstack #291.1 xstack
@@ -315,9 +387,9 @@ def mix_tile(tile_paths, output_path):
 
 
 if __name__ == "__main__":
-    video_path = "test-origin.mp4"
+    video_path = "combined-test-01.mp4"
     output_path = "./test-output"
-    #divide_video(video_path, output_path)
+    divide_video(video_path, output_path)
     mix_tile(output_path, "./test-output/combined.mp4")
 
 
