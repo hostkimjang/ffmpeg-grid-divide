@@ -86,9 +86,9 @@ def divide_video (original_path, output_path):
             "-progress", "-",  # 진행 상황을 표시하기 위한 옵션
             "-map", "0:a:0",  # 첫 번째 오디오 스트림을 지정'
             "-c:v", "h264_nvenc",  # 하드웨어 가속 옵션
-            "-preset", "p5",  # 인코딩 속도 옵션
-            "-b:v", "8M",
-            "-tune", "hq",
+            "-preset", "p6",  # 인코딩 속도 옵션
+            "-tune", "lossless",
+            "-cq", "0",
             "-c:a", "copy",
             "-y", f"{output_path}/{i}.mp4"
         ])
@@ -290,9 +290,8 @@ def mix_tile(tile_paths, output_path):
         "-map", "[v]",
         "-map", "[a]",
         "-c:v", "h264_nvenc",  # 하드웨어 가속 옵션
-        "-preset", "p5",  # 인코딩 속도 옵션
-        "-b:v", "8M",
-        "-tune", "hq",
+        "-b:v", "8000k",
+        "-preset", "p7",  # 인코딩 속도 옵션
         "-c:a", "aac",  # 오디오 코덱 설정
         "-y", output_path
     ])
@@ -388,7 +387,7 @@ def mix_tile(tile_paths, output_path):
 
 
 if __name__ == "__main__":
-    video_path = "qhd output [v43OthTbbVA].webm"
+    video_path = "combined-test-01.mp4"
     output_path = "./test-output"
     divide_video(video_path, output_path)
     mix_tile(output_path, "./test-output/combined.mp4")
